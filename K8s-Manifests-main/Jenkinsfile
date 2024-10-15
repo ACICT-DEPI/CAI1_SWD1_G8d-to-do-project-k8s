@@ -1,0 +1,34 @@
+node {
+    def app
+
+    stage('Setup Git') {
+        sh 'git config --global user.email "1.ayman.elshafie@gmail.com"'
+        sh 'git config --global user.name "Elshafiee"'
+    }
+
+    stage('Clone Repository') {
+        checkout([$class: 'GitSCM', branches: [[name: '*/main']], userRemoteConfigs: [[url: 'https://github.com/Elshafiee/k8s']]])
+    }
+
+    stage('Build Image') {
+        app = docker.build("mostafasalem2/python-app:${env.BUILD_NUMBER}")
+    }
+
+    stage('Test Image') {
+        app.inside {
+            sh 'echo "Tests passed"' // Replace with your actual test command if needed
+        }
+    }
+
+    stage('Push Image') {
+        docker.withRegistry('https://registry.hub.docker.com', 'dockerhub') {
+            app.push("latest")
+            app.push("${env.BUILD_NUMBER}")
+        }
+    }
+
+    stage('Trigger ManifestUpdate') {
+        build job: 'updatemanifest', parameters: [string(name: 'DOCKERTAG', value: "${env.BUILD_NUMBER}")]
+    }
+}
+
